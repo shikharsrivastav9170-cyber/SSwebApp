@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../../lib/supabaseClient';
-import { useAuth } from '../../../lib/useAuth';
+import { supabase } from '../../lib/supabaseClient';
+import { useAuth } from '../../lib/useAuth';
 import toast from 'react-hot-toast';
 
 interface Plan {
