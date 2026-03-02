@@ -73,6 +73,12 @@ create table activity_logs (
 -- enable row level security
 alter table users enable row level security;
 alter table leads enable row level security;
+
+-- employees can only view leads assigned to them
+create policy "Employee can view assigned leads"
+  on leads for select
+  using (assigned_to = auth.uid());
+
 alter table sales enable row level security;
 alter table targets enable row level security;
 

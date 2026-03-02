@@ -50,6 +50,8 @@ A Next.js PWA Sales CRM + Employee Tracking System for SSWebStudio.
    ```bash
    NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
    NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+   # for server-side operations (e.g. Supabase edge functions, API routes)
+   SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
    ```
 
 3. Run the Supabase schema SQL in your Supabase project:
