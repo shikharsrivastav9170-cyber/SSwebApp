@@ -1,93 +1,126 @@
--- Supabase SQL schema for SSWebStudio CRM
+-- EXTENSIONS
+create extension if not exists "uuid-ossp";
 
--- users table stores employees and admins
-create table users (
-  id uuid primary key default uuid_generate_v4(),
-  email text not null unique,
-  name text,
-  role text not null check (role in ('super_admin','admin','employee')),
-  phone text,
-  created_at timestamptz default now()
-);
-
--- leads generated from WhatsApp or manual entry
-create table leads (
-  id uuid primary key default uuid_generate_v4(),
-  name text,
-  phone text not null,
-  message text,
-  source text,
-  assigned_to uuid references users(id),
-  status text check (status in ('new','connected','follow_up','not_interested','sale_closed')) default 'new',
-  created_at timestamptz default now()
-);
-
--- plans catalog
-create table plans (
+------------------------------------------------
+-- COMPANIES
+------------------------------------------------
+create table companies (
   id uuid primary key default uuid_generate_v4(),
   name text not null,
-  price numeric not null
+  created_at timestamp default now()
 );
 
--- sales record when lead converted
+------------------------------------------------
+-- USERS
+------------------------------------------------
+create table users (
+  id uuid primary key references auth.users(id),
+  company_id uuid references companies(id),
+  name text,
+  role text check (role in ('super_admin','admin','employee')),
+  created_at timestamp default now()
+);
+
+------------------------------------------------
+-- LEADS
+------------------------------------------------
+create table leads (
+  id uuid primary key default uuid_generate_v4(),
+  company_id uuid references companies(id),
+  name text,
+  phone text,
+  message text,
+  status text default 'new',
+  assigned_to uuid references users(id),
+  created_at timestamp default now()
+);
+
+------------------------------------------------
+-- PLANS
+------------------------------------------------
+create table plans (
+  id uuid primary key default uuid_generate_v4(),
+  company_id uuid references companies(id),
+  name text,
+  price numeric,
+  created_at timestamp default now()
+);
+
+------------------------------------------------
+-- SALES
+------------------------------------------------
 create table sales (
   id uuid primary key default uuid_generate_v4(),
-  lead_id uuid references leads(id) on delete set null,
+  company_id uuid references companies(id),
   employee_id uuid references users(id),
+  lead_id uuid references leads(id),
   plan_id uuid references plans(id),
   amount numeric,
   payment_mode text,
-  payment_receipt text,
-  created_at timestamptz default now()
+  screenshot_url text,
+  created_at timestamp default now()
 );
 
--- monthly targets
+------------------------------------------------
+-- TARGETS
+------------------------------------------------
 create table targets (
   id uuid primary key default uuid_generate_v4(),
+  company_id uuid references companies(id),
   employee_id uuid references users(id),
-  month date not null,
-  amount numeric not null,
-  created_at timestamptz default now()
+  month text,
+  target_amount numeric,
+  created_at timestamp default now()
 );
 
--- incentive rules (simple table for future extension)
+------------------------------------------------
+-- INCENTIVE RULES (SLAB)
+------------------------------------------------
+create table incentive_rules (
+  id uuid primary key default uuid_generate_v4(),
+  company_id uuid references companies(id),
+  min_percentage numeric,
+  max_percentage numeric,
+  incentive_percentage numeric,
+  created_at timestamp default now()
+);
+
+------------------------------------------------
+-- INCENTIVES
+------------------------------------------------
 create table incentives (
   id uuid primary key default uuid_generate_v4(),
-  rule_name text,
-  percent numeric,
-  threshold numeric,
-  created_at timestamptz default now()
+  company_id uuid references companies(id),
+  employee_id uuid references users(id),
+  month text,
+  revenue numeric,
+  incentive numeric,
+  created_at timestamp default now()
 );
 
--- example activity log
-create table activity_logs (
-  id uuid primary key default uuid_generate_v4(),
-  user_id uuid references users(id),
-  action text,
-  details jsonb,
-  created_at timestamptz default now()
-);
-
--- policies (basic example permitting authenticated users to select their own rows)
-
--- enable row level security
+-- FULL RLS (Tenant Isolation + Role Secure)
 alter table users enable row level security;
 alter table leads enable row level security;
-
--- employees can only view leads assigned to them
-create policy "Employee can view assigned leads"
-  on leads for select
-  using (assigned_to = auth.uid());
-
 alter table sales enable row level security;
 alter table targets enable row level security;
 
--- policy: users can read their own record
-create policy "users_self_select" on users
-  for select using (auth.uid() = id);
+-- Tenant Isolation
+create policy "Tenant isolation"
+on leads
+for select
+using (
+  company_id =
+  (select company_id from users where id = auth.uid())
+);
 
--- policy: admins can see all users
-create policy "users_admin" on users
-  for select using (exists (select 1 from users u where u.id = auth.uid() and u.role in ('super_admin','admin')));
+-- Employee only assigned leads
+create policy "Employee assigned leads"
+on leads
+for select
+using (assigned_to = auth.uid());
 
--- more policies to be added as needed...
+-- Sales own view
+create policy "Employee own sales"
+on sales
+for select
+using (employee_id = auth.uid());

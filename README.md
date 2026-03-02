@@ -52,6 +52,9 @@ A Next.js PWA Sales CRM + Employee Tracking System for SSWebStudio.
    NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
    # for server-side operations (e.g. Supabase edge functions, API routes)
    SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+   # optional helpers
+   DEFAULT_COMPANY_ID=your-default-company-id
+   WHATSAPP_VERIFY_TOKEN=your-whatsapp-verification-token
    ```
 
 3. Run the Supabase schema SQL in your Supabase project:
@@ -73,31 +76,26 @@ src/
 ├── app/
 │   ├── page.tsx                 # Home page
 │   ├── login/page.tsx           # Login page
-│   ├── auth/callback/page.tsx  # OAuth callback
+│   ├── auth/callback/page.tsx   # OAuth callback
 │   ├── dashboard/
-│   │   ├── layout.tsx          # Employee dashboard layout
-│   │   ├── page.tsx            # Dashboard home
-│   │   ├── leads/page.tsx      # Lead management
-│   │   ├── sales/page.tsx      # Sales recording
-│   │   └── targets/page.tsx    # Target tracking
-│   └── admin/
-│       ├── layout.tsx          # Admin panel layout
-│       ├── page.tsx            # Admin analytics
-│       ├── employees/page.tsx  # Employee management
-│       ├── plans/page.tsx      # Plan management
-│       └── targets/page.tsx    # Target setting
-├── components/
-│   ├── Header.tsx              # App header
-│   ├── Sidebar.tsx             # Dashboard sidebar
-│   └── ClientLayout.tsx        # Toast provider
+│   │   ├── admin/               # Admin-only UI
+│   │   └── employee/            # Employee UI
+│   ├── api/
+│   │   └── webhooks/whatsapp/   # Incoming WhatsApp webhook
+│   └── ...
+├── components/                  # Reusable UI pieces
 ├── lib/
-│   ├── supabaseClient.ts       # Supabase client init
-│   ├── useAuth.ts             # Auth hook
-│   └── authService.ts         # Auth functions
+│   ├── supabaseClient.ts        # Supabase client init
+│   ├── tenant.ts                # Tenant helper
+│   ├── incentive.ts             # Incentive engine
+│   ├── useAuth.ts               # Auth hook
+│   └── authService.ts           # Auth functions
 ├── styles/
-│   └── globals.css            # Global styles
-└── middleware.ts              # Route protection
+│   └── globals.css              # Global styles
+└── middleware.ts                # Route protection
 ```
+
+The above mirrors an enterprise‑grade structure with separate admin/employee dashboards, tenant helpers, and webhook endpoints.
 
 ## Database Schema
 
