@@ -1,1 +1,167 @@
-'use client';\n\nimport React, { useState, useEffect } from 'react';\nimport { supabase } from '../../../lib/supabaseClient';\nimport { useAuth } from '../../../lib/useAuth';\nimport toast from 'react-hot-toast';\n\ninterface Employee {\n  id: string;\n  name: string;\n  email: string;\n  role: string;\n  phone: string;\n}\n\nexport default function EmployeesPage() {\n  const { user, loading: authLoading } = useAuth();\n  const [employees, setEmployees] = useState<Employee[]>([]);\n  const [newName, setNewName] = useState('');\n  const [newEmail, setNewEmail] = useState('');\n  const [newPhone, setNewPhone] = useState('');\n  const [newRole, setNewRole] = useState('employee');\n\n  useEffect(() => {\n    if (!authLoading && user) {\n      fetchEmployees();\n    }\n  }, [authLoading, user]);\n\n  const fetchEmployees = async () => {\n    const { data, error } = await supabase.from('users').select('*');\n    if (error) {\n      toast.error('Failed to fetch employees');\n    } else {\n      setEmployees(data || []);\n    }\n  };\n\n  const addEmployee = async () => {\n    if (!newName || !newEmail) {\n      toast.error('Please fill in all required fields');\n      return;\n    }\n\n    const { error } = await supabase.from('users').insert([\n      {\n        name: newName,\n        email: newEmail,\n        phone: newPhone,\n        role: newRole,\n      },\n    ]);\n\n    if (error) {\n      toast.error('Failed to add employee: ' + error.message);\n    } else {\n      toast.success('Employee added');\n      setNewName('');\n      setNewEmail('');\n      setNewPhone('');\n      setNewRole('employee');\n      fetchEmployees();\n    }\n  };\n\n  const updateRole = async (empId: string, newRole: string) => {\n    const { error } = await supabase\n      .from('users')\n      .update({ role: newRole })\n      .eq('id', empId);\n\n    if (error) {\n      toast.error('Failed to update role');\n    } else {\n      toast.success('Role updated');\n      fetchEmployees();\n    }\n  };\n\n  if (authLoading) return <div>Loading...</div>;\n\n  return (\n    <div>\n      <h1 className=\"text-3xl font-bold mb-6\">Manage Employees</h1>\n\n      <div className=\"bg-white shadow p-6 rounded mb-6\">\n        <h2 className=\"text-lg font-semibold mb-4\">Add New Employee</h2>\n        <div className=\"flex flex-col gap-3\">\n          <input\n            type=\"text\"\n            placeholder=\"Name\"\n            value={newName}\n            onChange={(e) => setNewName(e.target.value)}\n            className=\"border border-gray-300 p-3 rounded\"\n          />\n          <input\n            type=\"email\"\n            placeholder=\"Email\"\n            value={newEmail}\n            onChange={(e) => setNewEmail(e.target.value)}\n            className=\"border border-gray-300 p-3 rounded\"\n          />\n          <input\n            type=\"tel\"\n            placeholder=\"Phone (optional)\"\n            value={newPhone}\n            onChange={(e) => setNewPhone(e.target.value)}\n            className=\"border border-gray-300 p-3 rounded\"\n          />\n          <select\n            value={newRole}\n            onChange={(e) => setNewRole(e.target.value)}\n            className=\"border border-gray-300 p-3 rounded\"\n          >\n            <option value=\"employee\">Employee</option>\n            <option value=\"admin\">Admin</option>\n            <option value=\"super_admin\">Super Admin</option>\n          </select>\n          <button\n            onClick={addEmployee}\n            className=\"bg-blue-600 text-white py-3 rounded font-semibold hover:bg-blue-700\"\n          >\n            Add Employee\n          </button>\n        </div>\n      </div>\n\n      <div className=\"bg-white shadow rounded overflow-hidden\">\n        <h2 className=\"text-lg font-semibold p-4 border-b\">All Employees</h2>\n        <table className=\"w-full\">\n          <thead className=\"bg-gray-100\">\n            <tr>\n              <th className=\"p-4 text-left\">Name</th>\n              <th className=\"p-4 text-left\">Email</th>\n              <th className=\"p-4 text-left\">Phone</th>\n              <th className=\"p-4 text-left\">Role</th>\n              <th className=\"p-4 text-left\">Actions</th>\n            </tr>\n          </thead>\n          <tbody>\n            {employees.map((emp) => (\n              <tr key={emp.id} className=\"border-b hover:bg-gray-50\">\n                <td className=\"p-4 font-semibold\">{emp.name}</td>\n                <td className=\"p-4\">{emp.email}</td>\n                <td className=\"p-4\">{emp.phone || '-'}</td>\n                <td className=\"p-4\">\n                  <select\n                    value={emp.role}\n                    onChange={(e) => updateRole(emp.id, e.target.value)}\n                    className=\"border border-gray-300 p-1 rounded\"\n                  >\n                    <option value=\"employee\">Employee</option>\n                    <option value=\"admin\">Admin</option>\n                    <option value=\"super_admin\">Super Admin</option>\n                  </select>\n                </td>\n                <td className=\"p-4\">\n                  <button className=\"text-red-600 hover:underline\">Disable</button>\n                </td>\n              </tr>\n            ))}\n          </tbody>\n        </table>\n      </div>\n    </div>\n  );\n}\n
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../../../lib/supabaseClient';
+import { useAuth } from '../../../lib/useAuth';
+import toast from 'react-hot-toast';
+
+interface Employee {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  phone: string;
+}
+
+export default function EmployeesPage() {
+  const { user, loading: authLoading } = useAuth();
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [newName, setNewName] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [newPhone, setNewPhone] = useState('');
+  const [newRole, setNewRole] = useState('employee');
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      fetchEmployees();
+    }
+  }, [authLoading, user]);
+
+  const fetchEmployees = async () => {
+    const { data, error } = await supabase.from('users').select('*');
+    if (error) {
+      toast.error('Failed to fetch employees');
+    } else {
+      setEmployees(data || []);
+    }
+  };
+
+  const addEmployee = async () => {
+    if (!newName || !newEmail) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    const { error } = await supabase.from('users').insert([
+      {
+        name: newName,
+        email: newEmail,
+        phone: newPhone,
+        role: newRole,
+      },
+    ]);
+
+    if (error) {
+      toast.error('Failed to add employee: ' + error.message);
+    } else {
+      toast.success('Employee added');
+      setNewName('');
+      setNewEmail('');
+      setNewPhone('');
+      setNewRole('employee');
+      fetchEmployees();
+    }
+  };
+
+  const updateRole = async (empId: string, newRole: string) => {
+    const { error } = await supabase
+      .from('users')
+      .update({ role: newRole })
+      .eq('id', empId);
+
+    if (error) {
+      toast.error('Failed to update role');
+    } else {
+      toast.success('Role updated');
+      fetchEmployees();
+    }
+  };
+
+  if (authLoading) return <div>Loading...</div>;
+
+  return (
+    <div>
+      <h1 className="text-3xl font-bold mb-6">Manage Employees</h1>
+
+      <div className="bg-white shadow p-6 rounded mb-6">
+        <h2 className="text-lg font-semibold mb-4">Add New Employee</h2>
+        <div className="flex flex-col gap-3">
+          <input
+            type="text"
+            placeholder="Name"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            className="border border-gray-300 p-3 rounded"
+          />
+          <input
+            type="email"
+            placeholder="Email"
+            value={newEmail}
+            onChange={(e) => setNewEmail(e.target.value)}
+            className="border border-gray-300 p-3 rounded"
+          />
+          <input
+            type="tel"
+            placeholder="Phone (optional)"
+            value={newPhone}
+            onChange={(e) => setNewPhone(e.target.value)}
+            className="border border-gray-300 p-3 rounded"
+          />
+          <select
+            value={newRole}
+            onChange={(e) => setNewRole(e.target.value)}
+            className="border border-gray-300 p-3 rounded"
+          >
+            <option value="employee">Employee</option>
+            <option value="admin">Admin</option>
+            <option value="super_admin">Super Admin</option>
+          </select>
+          <button
+            onClick={addEmployee}
+            className="bg-blue-600 text-white py-3 rounded font-semibold hover:bg-blue-700"
+          >
+            Add Employee
+          </button>
+        </div>
+      </div>
+
+      <div className="bg-white shadow rounded overflow-hidden">
+        <h2 className="text-lg font-semibold p-4 border-b">All Employees</h2>
+        <table className="w-full">
+          <thead className="bg-gray-100">
+            <tr>
+              <th className="p-4 text-left">Name</th>
+              <th className="p-4 text-left">Email</th>
+              <th className="p-4 text-left">Phone</th>
+              <th className="p-4 text-left">Role</th>
+              <th className="p-4 text-left">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {employees.map((emp) => (
+              <tr key={emp.id} className="border-b hover:bg-gray-50">
+                <td className="p-4 font-semibold">{emp.name}</td>
+                <td className="p-4">{emp.email}</td>
+                <td className="p-4">{emp.phone || '-'}</td>
+                <td className="p-4">
+                  <select
+                    value={emp.role}
+                    onChange={(e) => updateRole(emp.id, e.target.value)}
+                    className="border border-gray-300 p-1 rounded"
+                  >
+                    <option value="employee">Employee</option>
+                    <option value="admin">Admin</option>
+                    <option value="super_admin">Super Admin</option>
+                  </select>
+                </td>
+                <td className="p-4">
+                  <button className="text-red-600 hover:underline">Disable</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
