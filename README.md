@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # SSWebStudio CRM
 
 A Next.js PWA Sales CRM + Employee Tracking System for SSWebStudio.
@@ -148,12 +149,4 @@ Core tables created in Supabase:
 ---
 
 Refer to the one-page prompt for full feature requirements and business logic details.
-## Deployment to Vercel
 
-1. Sign in to [Vercel](https://vercel.com) and import the GitHub repo.
-2. Configure project settings, supply environment variables from Supabase.
-3. The build command will be `npm run build` and the output directory is `.next`.
-
----
-
-Refer back to the initial one-page prompt for full feature requirements and database schema guidelines.
