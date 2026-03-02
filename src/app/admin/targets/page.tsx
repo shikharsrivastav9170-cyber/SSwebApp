@@ -134,7 +134,7 @@ export default function TargetsPage() {
             type="month"
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
-            classity="border border-gray-300 p-3 rounded"
+            className="border border-gray-300 p-3 rounded"
           />
           <input
             type="number"
