@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { authService } from '../../lib/authService';
+import { authService } from '../../../lib/authService';
 import toast from 'react-hot-toast';
 
 export default function LoginPage() {
