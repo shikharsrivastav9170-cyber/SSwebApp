@@ -3,14 +3,16 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../../lib/supabaseClient';
 import { useAuth } from '../../../lib/useAuth';
+import { getCurrentUserWithCompany } from '../../../lib/tenant';
 import toast from 'react-hot-toast';
 
 interface Employee {
   id: string;
+  company_id?: string;
   name: string;
   email: string;
   role: string;
-  phone: string;
+  phone?: string | null;
 }
 
 export default function EmployeesPage() {
@@ -27,14 +29,28 @@ export default function EmployeesPage() {
     }
   }, [authLoading, user]);
 
+
   const fetchEmployees = async () => {
-    const { data, error } = await supabase.from('users').select('*');
+    // restrict employees to the same company as current user
+    const profile = await getCurrentUserWithCompany();
+    if (!profile) {
+      toast.error('Unable to determine user company');
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('company_id', profile.company_id)
+      .neq('role', 'disabled');
+
     if (error) {
-      toast.error('Failed to fetch employees');
+      toast.error('Failed to fetch employees: ' + error.message);
     } else {
       setEmployees(data || []);
     }
-  };
+  }; 
+
 
   const addEmployee = async () => {
     if (!newName || !newEmail) {
@@ -42,14 +58,22 @@ export default function EmployeesPage() {
       return;
     }
 
-    const { error } = await supabase.from('users').insert([
-      {
-        name: newName,
-        email: newEmail,
-        phone: newPhone,
-        role: newRole,
-      },
-    ]);
+// include company_id on creation
+      const profile = await getCurrentUserWithCompany();
+      if (!profile) {
+        toast.error('Unable to determine user company');
+        return;
+      }
+
+      const { error } = await supabase.from('users').insert([
+        {
+          company_id: profile.company_id,
+          name: newName,
+          email: newEmail,
+          phone: newPhone,
+          role: newRole,
+        },
+      ]);
 
     if (error) {
       toast.error('Failed to add employee: ' + error.message);
@@ -78,6 +102,7 @@ export default function EmployeesPage() {
   };
 
   if (authLoading) return <div>Loading...</div>;
+  if (!user) return <div>Please log in to manage employees.</div>;
 
   return (
     <div>
@@ -155,7 +180,12 @@ export default function EmployeesPage() {
                   </select>
                 </td>
                 <td className="p-4">
-                  <button className="text-red-600 hover:underline">Disable</button>
+                  <button
+                    className="text-red-600 hover:underline"
+                    onClick={() => updateRole(emp.id, 'disabled')}
+                  >
+                    Disable
+                  </button>
                 </td>
               </tr>
             ))}
