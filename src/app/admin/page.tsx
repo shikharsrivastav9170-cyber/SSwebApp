@@ -1,1 +1,208 @@
-'use client';\n\nimport React, { useState, useEffect } from 'react';\nimport { supabase } from '../../../lib/supabaseClient';\nimport { useAuth } from '../../../lib/useAuth';\nimport { useRouter } from 'next/navigation';\nimport toast from 'react-hot-toast';\n\ninterface Employee {\n  id: string;\n  name: string;\n  email: string;\n  role: string;\n}\n\ninterface SalesData {\n  employeeId: string;\n  employeeName: string;\n  totalSales: number;\n  totalRevenue: number;\n  conversionRate: number;\n}\n\nexport default function AdminDashboard() {\n  const { user, loading: authLoading } = useAuth();\n  const router = useRouter();\n  const [employees, setEmployees] = useState<Employee[]>([]);\n  const [salesData, setSalesData] = useState<SalesData[]>([]);\n  const [totalRevenue, setTotalRevenue] = useState(0);\n  const [totalSales, setTotalSales] = useState(0);\n  const [filter, setFilter] = useState<{ employee: string; month: string }>({\n    employee: 'all',\n    month: new Date().toISOString().slice(0, 7),\n  });\n\n  useEffect(() => {\n    if (!authLoading && user) {\n      // Check if user is admin\n      checkAdminRole();\n      fetchEmployees();\n      fetchAnalytics();\n    }\n  }, [authLoading, user, filter]);\n\n  const checkAdminRole = async () => {\n    const { data: userData, error } = await supabase\n      .from('users')\n      .select('role')\n      .eq('id', user?.id)\n      .single();\n\n    if (error || (userData && !['super_admin', 'admin'].includes(userData.role))) {\n      router.push('/dashboard');\n      toast.error('You do not have admin access');\n    }\n  };\n\n  const fetchEmployees = async () => {\n    const { data, error } = await supabase\n      .from('users')\n      .select('*')\n      .eq('role', 'employee');\n\n    if (error) {\n      toast.error('Failed to fetch employees');\n    } else {\n      setEmployees(data || []);\n    }\n  };\n\n  const fetchAnalytics = async () => {\n    const { data: salesData, error } = await supabase.from('sales').select('*');\n\n    if (error) {\n      toast.error('Failed to fetch sales data');\n      return;\n    }\n\n    const sales = salesData || [];\n    const revenue = sales.reduce((sum, s) => sum + (s.amount || 0), 0);\n    setTotalRevenue(revenue);\n    setTotalSales(sales.length);\n\n    // Group by employee\n    const grouped: { [key: string]: SalesData } = {};\n    for (const employee of employees) {\n      const empSales = sales.filter((s) => s.employee_id === employee.id);\n      const empRevenue = empSales.reduce((sum, s) => sum + (s.amount || 0), 0);\n      grouped[employee.id] = {\n        employeeId: employee.id,\n        employeeName: employee.name || employee.email,\n        totalSales: empSales.length,\n        totalRevenue: empRevenue,\n        conversionRate: empSales.length > 0 ? Math.round((empRevenue / (empSales.length * 1000)) * 100) : 0,\n      };\n    }\n\n    setSalesData(Object.values(grouped));\n  };\n\n  if (authLoading) return <div>Loading...</div>;\n\n  const topPerformers = salesData.sort((a, b) => b.totalRevenue - a.totalRevenue).slice(0, 3);\n  const lowPerformers = salesData.sort((a, b) => a.totalRevenue - b.totalRevenue).slice(0, 3);\n\n  return (\n    <div>\n      <h1 className=\"text-3xl font-bold mb-6\">Admin Dashboard</h1>\n\n      <div className=\"grid grid-cols-1 md:grid-cols-4 gap-4 mb-6\">\n        <div className=\"bg-blue-600 text-white p-6 rounded\">\n          <p className=\"text-sm\">Total Employees</p>\n          <p className=\"text-3xl font-bold\">{employees.length}</p>\n        </div>\n        <div className=\"bg-green-600 text-white p-6 rounded\">\n          <p className=\"text-sm\">Total Sales</p>\n          <p className=\"text-3xl font-bold\">{totalSales}</p>\n        </div>\n        <div className=\"bg-purple-600 text-white p-6 rounded\">\n          <p className=\"text-sm\">Total Revenue</p>\n          <p className=\"text-3xl font-bold\">₹{totalRevenue}</p>\n        </div>\n        <div className=\"bg-orange-600 text-white p-6 rounded\">\n          <p className=\"text-sm\">Avg. Sale Value</p>\n          <p className=\"text-3xl font-bold\">₹{totalSales > 0 ? Math.round(totalRevenue / totalSales) : 0}</p>\n        </div>\n      </div>\n\n      <div className=\"grid grid-cols-1 md:grid-cols-2 gap-6 mb-6\">\n        <div className=\"bg-white shadow rounded p-6\">\n          <h2 className=\"text-lg font-semibold mb-4\">Top Performers</h2>\n          <ul className=\"space-y-2\">\n            {topPerformers.map((emp, i) => (\n              <li key={emp.employeeId} className=\"flex justify-between pb-2 border-b\">\n                <span className=\"font-semibold\">\n                  {i + 1}. {emp.employeeName}\n                </span>\n                <span className=\"text-green-600\">₹{emp.totalRevenue}</span>\n              </li>\n            ))}\n          </ul>\n        </div>\n\n        <div className=\"bg-white shadow rounded p-6\">\n          <h2 className=\"text-lg font-semibold mb-4\">Low Performers</h2>\n          <ul className=\"space-y-2\">\n            {lowPerformers.map((emp, i) => (\n              <li key={emp.employeeId} className=\"flex justify-between pb-2 border-b\">\n                <span className=\"font-semibold\">\n                  {i + 1}. {emp.employeeName}\n                </span>\n                <span className=\"text-red-600\">₹{emp.totalRevenue}</span>\n              </li>\n            ))}\n          </ul>\n        </div>\n      </div>\n\n      <div className=\"bg-white shadow rounded\">\n        <h2 className=\"text-lg font-semibold p-6 border-b\">Employee Performance</h2>\n        <table className=\"w-full\">\n          <thead className=\"bg-gray-100\">\n            <tr>\n              <th className=\"p-4 text-left\">Employee</th>\n              <th className=\"p-4 text-left\">Total Sales</th>\n              <th className=\"p-4 text-left\">Revenue</th>\n              <th className=\"p-4 text-left\">Avg Value</th>\n            </tr>\n          </thead>\n          <tbody>\n            {salesData.map((emp) => (\n              <tr key={emp.employeeId} className=\"border-b hover:bg-gray-50\">\n                <td className=\"p-4\">{emp.employeeName}</td>\n                <td className=\"p-4\">{emp.totalSales}</td>\n                <td className=\"p-4 font-semibold\">₹{emp.totalRevenue}</td>\n                <td className=\"p-4\">₹{emp.totalSales > 0 ? Math.round(emp.totalRevenue / emp.totalSales) : 0}</td>\n              </tr>\n            ))}\n          </tbody>\n        </table>\n      </div>\n    </div>\n  );\n}\n
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../../../lib/supabaseClient';
+import { useAuth } from '../../../lib/useAuth';
+import { useRouter } from 'next/navigation';
+import toast from 'react-hot-toast';
+
+interface Employee {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+}
+
+interface SalesData {
+  employeeId: string;
+  employeeName: string;
+  totalSales: number;
+  totalRevenue: number;
+  conversionRate: number;
+}
+
+export default function AdminDashboard() {
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [salesData, setSalesData] = useState<SalesData[]>([]);
+  const [totalRevenue, setTotalRevenue] = useState(0);
+  const [totalSales, setTotalSales] = useState(0);
+  const [filter, setFilter] = useState<{ employee: string; month: string }>(
+    {
+      employee: 'all',
+      month: new Date().toISOString().slice(0, 7),
+    }
+  );
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      checkAdminRole();
+      fetchEmployees();
+      fetchAnalytics();
+    }
+  }, [authLoading, user, filter]);
+
+  const checkAdminRole = async () => {
+    const { data: userData, error } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', user?.id)
+      .single();
+
+    if (
+      error ||
+      (userData && !['super_admin', 'admin'].includes(userData.role))
+    ) {
+      router.push('/dashboard');
+      toast.error('You do not have admin access');
+    }
+  };
+
+  const fetchEmployees = async () => {
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('role', 'employee');
+
+    if (error) {
+      toast.error('Failed to fetch employees');
+    } else {
+      setEmployees(data || []);
+    }
+  };
+
+  const fetchAnalytics = async () => {
+    const { data: salesDataResp, error } = await supabase
+      .from('sales')
+      .select('*');
+
+    if (error) {
+      toast.error('Failed to fetch sales data');
+      return;
+    }
+
+    const sales = salesDataResp || [];
+    const revenue = sales.reduce((sum, s) => sum + (s.amount || 0), 0);
+    setTotalRevenue(revenue);
+    setTotalSales(sales.length);
+
+    const grouped: { [key: string]: SalesData } = {};
+    for (const employee of employees) {
+      const empSales = sales.filter((s) => s.employee_id === employee.id);
+      const empRevenue = empSales.reduce((sum, s) => sum + (s.amount || 0), 0);
+      grouped[employee.id] = {
+        employeeId: employee.id,
+        employeeName: employee.name || employee.email,
+        totalSales: empSales.length,
+        totalRevenue: empRevenue,
+        conversionRate:
+          empSales.length > 0
+            ? Math.round((empRevenue / (empSales.length * 1000)) * 100)
+            : 0,
+      };
+    }
+
+    setSalesData(Object.values(grouped));
+  };
+
+  if (authLoading) return <div>Loading...</div>;
+
+  const topPerformers = salesData
+    .sort((a, b) => b.totalRevenue - a.totalRevenue)
+    .slice(0, 3);
+  const lowPerformers = salesData
+    .sort((a, b) => a.totalRevenue - b.totalRevenue)
+    .slice(0, 3);
+
+  return (
+    <div>
+      <h1 className="text-3xl font-bold mb-6">Admin Dashboard</h1>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="bg-blue-600 text-white p-6 rounded">
+          <p className="text-sm">Total Employees</p>
+          <p className="text-3xl font-bold">{employees.length}</p>
+        </div>
+        <div className="bg-green-600 text-white p-6 rounded">
+          <p className="text-sm">Total Sales</p>
+          <p className="text-3xl font-bold">{totalSales}</p>
+        </div>
+        <div className="bg-purple-600 text-white p-6 rounded">
+          <p className="text-sm">Total Revenue</p>
+          <p className="text-3xl font-bold">₹{totalRevenue}</p>
+        </div>
+        <div className="bg-orange-600 text-white p-6 rounded">
+          <p className="text-sm">Avg. Sale Value</p>
+          <p className="text-3xl font-bold">
+            ₹{totalSales > 0 ? Math.round(totalRevenue / totalSales) : 0}
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <div className="bg-white shadow rounded p-6">
+          <h2 className="text-lg font-semibold mb-4">Top Performers</h2>
+          <ul className="space-y-2">
+            {topPerformers.map((emp, i) => (
+              <li
+                key={emp.employeeId}
+                className="flex justify-between pb-2 border-b"
+              >
+                <span className="font-semibold">
+                  {i + 1}. {emp.employeeName}
+                </span>
+                <span className="text-green-600">₹{emp.totalRevenue}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="bg-white shadow rounded p-6">
+          <h2 className="text-lg font-semibold mb-4">Low Performers</h2>
+          <ul className="space-y-2">
+            {lowPerformers.map((emp, i) => (
+              <li
+                key={emp.employeeId}
+                className="flex justify-between pb-2 border-b"
+              >
+                <span className="font-semibold">
+                  {i + 1}. {emp.employeeName}
+                </span>
+                <span className="text-red-600">₹{emp.totalRevenue}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      <div className="bg-white shadow rounded">
+        <h2 className="text-lg font-semibold p-6 border-b">
+          Employee Performance
+        </h2>
+        <table className="w-full">
+          <thead className="bg-gray-100">
+            <tr>
+              <th className="p-4 text-left">Employee</th>
+              <th className="p-4 text-left">Total Sales</th>
+              <th className="p-4 text-left">Revenue</th>
+              <th className="p-4 text-left">Avg Value</th>
+            </tr>
+          </thead>
+          <tbody>
+            {salesData.map((emp) => (
+              <tr key={emp.employeeId} className="border-b hover:bg-gray-50">
+                <td className="p-4">{emp.employeeName}</td>
+                <td className="p-4">{emp.totalSales}</td>
+                <td className="p-4 font-semibold">₹{emp.totalRevenue}</td>
+                <td className="p-4">
+                  ₹{emp.totalSales > 0 ? Math.round(emp.totalRevenue / emp.totalSales) : 0}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
